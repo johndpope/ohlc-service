@@ -10,7 +10,6 @@ from pandas import DataFrame
 import plotly.offline as py
 import plotly.graph_objs as go
 
-py.init_notebook_mode(connected=True)
 
 def contains_error(json):
     if not json["error"]:
@@ -105,7 +104,6 @@ def save_all_trades(pair_name):
 
 
 class Candle:
-
     __slots__ = ['open', 'close', 'high', 'low', 'volume', ]
 
     def __init__(self, open=0.0, close=0.0, high=0.0, low=0.0, volume=0.0):
@@ -209,6 +207,7 @@ def build_ohlc(filename):
     }, index=date['s'])
     return ohlc_df;
 
+
 def build_ohlc_3(filename):
     file = open(filename, 'r')
 
@@ -242,7 +241,6 @@ def build_ohlc_3(filename):
     low_price[trade_dir].append(trade_price)
     volume[trade_dir].append(trade_volume)
     weighted_average[trade_dir].append(trade_volume * trade_price)
-
 
     count = 0
 
@@ -326,7 +324,6 @@ def build_ohlc_3(filename):
     return ohlc_bid, ohlc_ask
 
 
-
 # def print_ohlc(ohlc):
 #    btc_trace = go.Scatter(x=ohlc['s'].keys(), y=ohlc['s'].keys())
 #    py.iplot([btc_trace])
@@ -342,11 +339,10 @@ def build_ohlc_2(filename, pairname):
 
 
 def print_ohlc(dir, filename, pairname, mode='lines'):
+    ohlc_bid, ohlc_ask = build_ohlc_3(dir + filename)
 
-    ohlc_bid, ohlc_ask = build_ohlc_3(dir+filename)
-
-    ohlc_bid.to_csv(dir + os.path.splitext(filename)[0]+"_bid.csv", sep=';', encoding='utf-8')
-    ohlc_ask.to_csv(dir + os.path.splitext(filename)[0]+"_ask.csv", sep=';', encoding='utf-8')
+    ohlc_bid.to_csv(dir + os.path.splitext(filename)[0] + "_bid.csv", sep=';', encoding='utf-8')
+    ohlc_ask.to_csv(dir + os.path.splitext(filename)[0] + "_ask.csv", sep=';', encoding='utf-8')
 
     bid_graph = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['open'], name='Bid ' + pairname, mode=mode)
     ask_graph = go.Scatter(x=ohlc_ask.index, y=ohlc_ask['open'], name='Ask ' + pairname, mode=mode)
@@ -354,30 +350,36 @@ def print_ohlc(dir, filename, pairname, mode='lines'):
     py.offline.plot([bid_graph, ask_graph], filename=dir + pairname + '.html')
 
     open_bid_graph = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['open'], name='Bid ' + pairname, mode=mode)
-    weighted_average_bid_graph = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['weighted_average'], name='Weight Bid ' + pairname, mode=mode)
+    weighted_average_bid_graph = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['weighted_average'],
+                                            name='Weight Bid ' + pairname, mode=mode)
     py.iplot([open_bid_graph, weighted_average_bid_graph])
-    py.offline.plot([open_bid_graph, weighted_average_bid_graph], filename=dir + pairname + '_' + mode + '_weighted.html')
+    py.offline.plot([open_bid_graph, weighted_average_bid_graph],
+                    filename=dir + pairname + '_' + mode + '_weighted.html')
+
 
 def print_ohlc_from_csv(dir, filename, pairname, mode='lines'):
+    ohlc_bid = read_csv(dir + os.path.splitext(filename)[0] + "_bid.csv", sep=';', encoding='utf-8', index_col=0,
+                        nrows=10000)
+    # ohlc_ask = read_csv(dir + os.path.splitext(filename)[0]+"_ask.csv", sep=';', encoding='utf-8', index_col=0)
 
-    ohlc_bid = read_csv(dir + os.path.splitext(filename)[0]+"_bid.csv", sep=';', encoding='utf-8', index_col=0, nrows=10000)
-    #ohlc_ask = read_csv(dir + os.path.splitext(filename)[0]+"_ask.csv", sep=';', encoding='utf-8', index_col=0)
-
-    #bid_graph = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['open'], name='Bid ' + pairname, mode=mode)
-    #ask_graph = go.Scatter(x=ohlc_ask.index, y=ohlc_ask['open'], name='Ask ' + pairname, mode=mode)
-    #py.iplot([bid_graph, ask_graph])
-    #py.offline.plot([bid_graph, ask_graph], filename=dir + pairname + '_' + mode +'.html')
+    # bid_graph = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['open'], name='Bid ' + pairname, mode=mode)
+    # ask_graph = go.Scatter(x=ohlc_ask.index, y=ohlc_ask['open'], name='Ask ' + pairname, mode=mode)
+    # py.iplot([bid_graph, ask_graph])
+    # py.offline.plot([bid_graph, ask_graph], filename=dir + pairname + '_' + mode +'.html')
 
     ohlc_bid['avg'] = ohlc_bid[['high', 'low']].mean(axis=1)
 
     open_bid_graph = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['open'], name='Open Bid ' + pairname, mode=mode)
     avg_bid_graph_w = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['avg'], name='Avg Bid ' + pairname, mode=mode)
-    weighted_average_bid_graph = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['weighted_average'], name='Weight Avf Bid ' + pairname, mode=mode)
+    weighted_average_bid_graph = go.Scatter(x=ohlc_bid.index, y=ohlc_bid['weighted_average'],
+                                            name='Weight Avf Bid ' + pairname, mode=mode)
     curves = [open_bid_graph, avg_bid_graph_w, weighted_average_bid_graph]
 
     py.iplot(curves)
     py.offline.plot(curves, filename=dir + pairname + '_' + mode + '_weighted.html')
 
-#file_path = save_all_trades('LTCUSD')
+
+py.init_notebook_mode(connected=True)
+# file_path = save_all_trades('LTCUSD')
 print_ohlc_from_csv('result/LTCUSD/', 'LTCUSD_2017_10_11_12_01_03.txt', 'LTCUSD', mode='markers')
 print("Finish")
