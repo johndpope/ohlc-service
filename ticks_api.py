@@ -11,11 +11,11 @@ import plotly.offline as py
 import plotly.graph_objs as go
 
 
-def contains_error(json):
-    if not json["error"]:
+def contains_error(answer):
+    if not answer["error"]:
         return False
 
-    print(json["error"])
+    print(answer["error"])
     return True
 
 
@@ -36,30 +36,30 @@ def mkdir(path):
 
 
 def get_ohlc_data(file, pair, since):
-    # urlData = "https://api.kraken.com/0/public/OHLC?pair=" + pair + "&since=" + str(since);
-    urlData = "https://api.kraken.com/0/public/Trades?pair=" + pair + "&since=" + str(since);
-    webURL = urllib.request.urlopen(urlData)
-    data = webURL.read()
-    encoding = webURL.info().get_content_charset('utf-8')
-    answer = json.loads(data.decode(encoding))
+    # url_data = "https://api.kraken.com/0/public/OHLC?pair=" + pair + "&since=" + str(since);
+    url = "https://api.kraken.com/0/public/Trades?pair=" + pair + "&since=" + str(since);
+    answer = urllib.request.urlopen(url)
+    encoded_data = answer.read()
+    encoding = answer.info().get_content_charset('utf-8')
+    json_data = json.loads(encoded_data.decode(encoding))
 
-    if contains_error(answer):
+    if contains_error(json_data):
         return False, 0, False
 
-    pair_name = get_pair_name(answer)
-    list_of_trades = parse_ticks(answer, pair_name);
+    pair_name = get_pair_name(json_data)
+    list_of_trades = parse_ticks(json_data, pair_name);
 
     if not list_of_trades:
         print("Error: empty answer")
         return False, 0, False
 
-    last_id = get_last_id(answer)
+    last_id = get_last_id(json_data)
     is_last_request = False
     # <price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>
 
     for trade in list_of_trades:
         date = datetime.datetime.fromtimestamp(trade[2])
-        file.write(date.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3] + f"\t{trade[0]}\t{trade[1]}\t{trade[3]}\t{trade[4]}\n")
+        file.write(date.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3] + f'\t{trade[0]}\t{trade[1]}\t{trade[3]}\t{trade[4]}\n')
 
         if ((datetime.datetime.now() - date).total_seconds() < 3600):
             is_last_request = True
@@ -379,7 +379,48 @@ def print_ohlc_from_csv(dir, filename, pairname, mode='lines'):
     py.offline.plot(curves, filename=dir + pairname + '_' + mode + '_weighted.html')
 
 
+def find_longest_continious_sequence(dir, filename, pairname):
+    ohlc_bid = read_csv(dir + filename, sep=';', encoding='utf-8', index_col=0)
+
+    if len(ohlc_bid.index) == 0:
+        return 0, 0, 0
+
+    max_count = 1
+    current_count = 0
+
+    prev_time = datetime.datetime.strptime(ohlc_bid.index[0], '%Y-%m-%d %H:%M:%S')
+    cur_start_interval = prev_time
+    max_start_interval = prev_time
+    max_end_interval = prev_time
+
+    for date in ohlc_bid.index:
+
+        current_time = datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
+
+        d1_ts = time.mktime(current_time.timetuple())
+        d2_ts = time.mktime(prev_time.timetuple())
+        minutes_delta = int(d1_ts-d2_ts) // 60
+
+        if minutes_delta <= 5:
+            current_count += 1
+        else:
+            if current_count > max_count:
+                max_start_interval = cur_start_interval
+                max_end_interval = prev_time
+                max_count = current_count
+
+            current_count = 0
+            cur_start_interval = current_time
+
+        prev_time = current_time
+
+    return max_count, max_start_interval, max_end_interval
+
+
 py.init_notebook_mode(connected=True)
 # file_path = save_all_trades('LTCUSD')
-print_ohlc_from_csv('result/LTCUSD/', 'LTCUSD_2017_10_11_12_01_03.txt', 'LTCUSD', mode='markers')
+# print_ohlc_from_csv('result/LTCUSD/', 'LTCUSD_2017_10_11_12_01_03.txt', 'LTCUSD', mode='markers')
+
+result = find_longest_continious_sequence('result/LTCUSD/', 'LTCUSD_2017_10_11_12_01_03_bid.csv', 'LTCUSD')
+print(result)
 print("Finish")
