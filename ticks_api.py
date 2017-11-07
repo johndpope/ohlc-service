@@ -379,6 +379,7 @@ def print_ohlc_from_csv(dir, filename, pairname, mode='lines'):
     py.offline.plot(curves, filename=dir + pairname + '_' + mode + '_weighted.html')
 
 
+
 def find_longest_continious_sequence(dir, filename, pairname):
     ohlc_bid = read_csv(dir + filename, sep=';', encoding='utf-8', index_col=0)
 
@@ -417,10 +418,67 @@ def find_longest_continious_sequence(dir, filename, pairname):
     return max_count, max_start_interval, max_end_interval
 
 
+def find_pivot_sequences(dir, filename):
+    ohlc = read_csv(dir + filename, sep=';', encoding='utf-8', index_col=0)
+
+    if len(ohlc.index) == 0:
+        return []
+
+    pivots_list = [];
+
+    prev_price = ohlc['weighted_average'][0]
+    pivot_price = prev_price
+    pivot_index = 0
+    index = 0
+
+    minimal_increase = 4;
+    minimal_recovery = 4;
+
+    continuous_increase_counter = 0
+    continuous_recovery_counter = 0
+    have_potential_pivot_point = False
+
+    for date, row in ohlc.iterrows():
+
+        current_time = datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
+        current_price = row['weighted_average']
+
+        if not have_potential_pivot_point:
+            if current_price >= prev_price:
+                continuous_increase_counter += 1
+            else:
+                if continuous_increase_counter > minimal_increase:
+                    pivot_index = index
+                    pivot_price = prev_price
+                    have_potential_pivot_point = True
+
+                continuous_increase_counter = 0
+        else:
+            if current_price >= pivot_price:
+                if continuous_recovery_counter > minimal_recovery:
+                    pivots_list.append((pivot_index, current_time, pivot_price, continuous_recovery_counter))
+                    print(pivots_list[-1])
+                    have_potential_pivot_point = False
+                    continuous_recovery_counter = 0
+                else:
+                    have_potential_pivot_point = False
+                    continuous_recovery_counter = 0
+            else:
+                continuous_recovery_counter += 1
+
+        index += 1
+        prev_price = current_price
+
+    return pivots_list
+
+
 py.init_notebook_mode(connected=True)
 # file_path = save_all_trades('LTCUSD')
 # print_ohlc_from_csv('result/LTCUSD/', 'LTCUSD_2017_10_11_12_01_03.txt', 'LTCUSD', mode='markers')
 
-result = find_longest_continious_sequence('result/LTCUSD/', 'LTCUSD_2017_10_11_12_01_03_bid.csv', 'LTCUSD')
-print(result)
+result = find_pivot_sequences('result/LTCUSD/', 'LTCUSD_2017_bid.csv')
+data = DataFrame(result, columns=['pivot_index', 'current_time', 'pivot_price', 'length'])
+data.to_csv('result/LTCUSD/LTCUSD_2017_pivots.csv', sep=';', encoding='utf-8')
+
+#result = find_longest_continious_sequence('result/LTCUSD/', 'LTCUSD_2017_10_11_12_01_03_bid.csv', 'LTCUSD')
 print("Finish")
