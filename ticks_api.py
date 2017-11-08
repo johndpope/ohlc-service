@@ -418,58 +418,76 @@ def find_longest_continious_sequence(dir, filename, pairname):
     return max_count, max_start_interval, max_end_interval
 
 
-def find_pivot_sequences(dir, filename):
-    ohlc = read_csv(dir + filename, sep=';', encoding='utf-8', index_col=0)
+def parse_time(str_time):
+    return datetime.datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
 
-    if len(ohlc.index) == 0:
+
+def find_pivot_sequences(directory, filename):
+    ohlc = read_csv(directory + filename, sep=';', encoding='utf-8', index_col=0)
+
+    length = len(ohlc.index.values)
+    if length == 0:
         return []
 
-    pivots_list = [];
+    pivots_list = []
 
-    prev_price = ohlc['weighted_average'][0]
-    pivot_price = prev_price
-    pivot_index = 0
-    index = 0
+    minimal_increase = 4
+    minimal_recovery = 4
+    maximum_recovery = 1000
 
-    minimal_increase = 4;
-    minimal_recovery = 4;
+    i = 1;
+    while i < length:
 
-    continuous_increase_counter = 0
-    continuous_recovery_counter = 0
-    have_potential_pivot_point = False
+        first_max_index = 0
 
-    for date, row in ohlc.iterrows():
+        prev_price = ohlc['weighted_average'][i - 1]
+        first_max_price = prev_price
 
-        current_time = datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
-        current_price = row['weighted_average']
+        continuous_increase_counter = 0
+        continuous_recovery_counter = 0
+        have_potential_pivot_point = False
 
-        if not have_potential_pivot_point:
-            if current_price >= prev_price:
-                continuous_increase_counter += 1
-            else:
-                if continuous_increase_counter > minimal_increase:
-                    pivot_index = index
-                    pivot_price = prev_price
-                    have_potential_pivot_point = True
+        for j in range(i, length):
 
-                continuous_increase_counter = 0
-        else:
-            if current_price >= pivot_price:
-                if continuous_recovery_counter > minimal_recovery:
-                    pivots_list.append((pivot_index, current_time, pivot_price, continuous_recovery_counter))
-                    print(pivots_list[-1])
-                    have_potential_pivot_point = False
-                    continuous_recovery_counter = 0
+            current_time = parse_time(ohlc.index[j])
+            current_price = ohlc['weighted_average'][j]
+
+            if not have_potential_pivot_point:
+                if current_price >= prev_price:
+                    continuous_increase_counter += 1
                 else:
-                    have_potential_pivot_point = False
-                    continuous_recovery_counter = 0
+                    if continuous_increase_counter > minimal_increase:
+                        first_max_index = j
+                        first_max_price = prev_price
+                        have_potential_pivot_point = True
+                    else:
+                        break
             else:
-                continuous_recovery_counter += 1
+                if current_price >= first_max_price:
+                    if continuous_recovery_counter > minimal_recovery:
+                        pivots_list.append((i, first_max_index, continuous_recovery_counter, first_max_price, current_time))
+                        print(pivots_list[-1])
+                    break;
+                else:
+                    continuous_recovery_counter += 1
 
-        index += 1
-        prev_price = current_price
+                if continuous_recovery_counter > maximum_recovery:
+                    print("Too long recovery")
+                    break
+
+            prev_price = current_price
+
+        if continuous_increase_counter == 0:
+            i += 1
+        else:
+            i += continuous_increase_counter
 
     return pivots_list
+
+def convert_pivot_sequences_to_training_seq(directory, filename_with_seq, filename_with_ohlc):
+    pivot_sequences = read_csv(directory + filename_with_seq, sep=';', encoding='utf-8', index_col=0)
+    ohlc = read_csv(directory + filename_with_ohlc, sep=';', encoding='utf-8', index_col=0)
+
 
 
 py.init_notebook_mode(connected=True)
@@ -477,8 +495,12 @@ py.init_notebook_mode(connected=True)
 # print_ohlc_from_csv('result/LTCUSD/', 'LTCUSD_2017_10_11_12_01_03.txt', 'LTCUSD', mode='markers')
 
 result = find_pivot_sequences('result/LTCUSD/', 'LTCUSD_2017_bid.csv')
-data = DataFrame(result, columns=['pivot_index', 'current_time', 'pivot_price', 'length'])
+data = DataFrame(result, columns=['start_index', 'max_index', 'length', 'pivot_price', 'current_time'])
 data.to_csv('result/LTCUSD/LTCUSD_2017_pivots.csv', sep=';', encoding='utf-8')
+
+training_sequences = convert_pivot_sequences_to_training_seq('result/LTCUSD/', 'LTCUSD_2017_pivots.csv')
+training data_frame = DataFrame(training_sequences, columns=['start', 'max', 'length', 'pivot_price', 'current_time'])
+training.to_csv('result/LTCUSD/LTCUSD_2017_pivots.csv', sep=';', encoding='utf-8')
 
 #result = find_longest_continious_sequence('result/LTCUSD/', 'LTCUSD_2017_10_11_12_01_03_bid.csv', 'LTCUSD')
 print("Finish")
